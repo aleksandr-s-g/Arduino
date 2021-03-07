@@ -4,7 +4,11 @@
 #include <Encoder.h>
 // #include <ESPmDNS.h>
 // #include <EEPROM.h>
-// #include "time.h"
+#include "time.h"
+// #include <DHT.h>
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 6*3600;
+const int   daylightOffset_sec = 3600;
 #include <DHT.h>
 #define DHTTYPE DHT21     // DHT 11
 #define DHTPIN 21     // Digital pin connected to the DHT sensor
@@ -244,7 +248,7 @@ void setup() {
   {
     speed_arr[i] = 0;
   }*/
-myEnc.write(10000);
+myEnc.write(100000);
 
   // инициализируем контакт кнопки, делая его входным контактом:
   // инициализируем контакт светодиода, делая его выходным контактом: 
@@ -302,13 +306,13 @@ myEnc.write(10000);
   tmpCurPos = calcTmpCurPos;
   curPos = calcTmpCurPos;
   dht.begin();
- /* configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+ configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
     return;
   }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");*/
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 }
 void go_down()
 {
@@ -461,7 +465,8 @@ void engine_handler()
   // Serial.print("/");
   // Serial.print(targetPercentPos);
   // Serial.print("/");
-  if(targetPercentPos == 0 && onZeroFlag == 0 && tmpCurPos > minPos)
+  if(curPercentPos > targetPercentPos)
+  //if(targetPercentPos == 0 && onZeroFlag == 0 && tmpCurPos > minPos)
   {
     movingState = UP;
     // Serial.println("UP");
@@ -595,7 +600,21 @@ void engine_move()
   }
   
 }
+void checkWifi(){
+   if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+   WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("");
 
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+}
 
 
 
@@ -632,7 +651,13 @@ if(En1PinState == 1 && prevEn1PinState == 0)
 prevEn1PinState = digitalRead(En1Pin);
 */
 
-
+struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  int now_sec = timeinfo.tm_sec;
+  if (now_sec == 0)checkWifi();
 long newPosition = myEnc.read();
 long int now_micros = micros();
 float EnSpeed = float((prevEnPos - newPosition))*1000000/(now_micros - prevEnPosTime);
